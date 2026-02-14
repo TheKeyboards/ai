@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>数据集图片打标工具</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>数据集图片打标工具</h1>
+      <p>拖拽图片 -> 选择分类标签 -> 导出打标结果</p>
+    </header>
+
+    <main>
+      <section class="panel upload-panel">
+        <h2>1) 上传图片</h2>
+        <div id="dropZone" class="drop-zone">
+          <p>将图片拖到这里，或点击选择文件</p>
+          <input id="fileInput" type="file" accept="image/*" multiple />
+        </div>
+        <small>支持多图，完全本地处理。</small>
+      </section>
+
+      <section class="panel template-panel">
+        <h2>2) 标签模板（可编辑）</h2>
+        <div id="templateContainer"></div>
+
+        <div class="template-editor">
+          <input id="newCategory" placeholder="新分类名称（如：服装）" />
+          <input id="newTag" placeholder="新标签（如：kimono）" />
+          <button id="addTagBtn">添加标签</button>
+          <button id="resetTemplateBtn" class="danger">重置默认模板</button>
+        </div>
+      </section>
+
+      <section class="panel annotate-panel">
+        <h2>3) 按图打标</h2>
+        <div class="work-area">
+          <aside id="imageList" class="image-list"></aside>
+          <div class="image-workbench">
+            <div id="previewBox" class="preview-box">暂无图片</div>
+            <label>
+              备注：
+              <input id="notesInput" placeholder="可选，例如：角色名字、特殊说明" />
+            </label>
+            <div id="tagSelection" class="tag-selection"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel export-panel">
+        <h2>4) 导出</h2>
+        <button id="exportJsonBtn">导出 JSON</button>
+        <button id="copyCurrentBtn">复制当前图标签</button>
+        <button id="pasteToAllBtn">粘贴到全部图片</button>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
