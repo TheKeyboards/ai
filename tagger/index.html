@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 图片打标器 - 数据集标签管理工具</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232736;
+    --border: #2a2e3d;
+    --border-active: #5b6ef5;
+    --text: #e4e6f0;
+    --text-dim: #8b8fa3;
+    --text-muted: #5a5e72;
+    --accent: #5b6ef5;
+    --accent-hover: #6d7ef7;
+    --accent-glow: rgba(91,110,245,0.15);
+    --danger: #ef4444;
+    --danger-bg: rgba(239,68,68,0.1);
+    --success: #22c55e;
+    --success-bg: rgba(34,197,94,0.1);
+    --warning: #f59e0b;
+    --warning-bg: rgba(245,158,11,0.1);
+    --tag-bg: #252a3a;
+    --tag-hover: #2d3348;
+    --tag-active: rgba(91,110,245,0.2);
+    --tag-active-border: #5b6ef5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; color: #fff;
+  }
+  .header-title { font-size: 15px; font-weight: 700; }
+  .header-sub { font-size: 11px; color: var(--text-dim); }
+  .header-actions { display: flex; gap: 8px; }
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 8px; font-size: 13px;
+    cursor: pointer; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim);
+    transition: all 0.15s; font-family: inherit;
+  }
+  .btn:hover { background: var(--surface2); color: var(--text); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    border: none; color: #fff; font-weight: 600;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-sm {
+    padding: 3px 8px; border-radius: 5px; font-size: 12px;
+    border: none; background: transparent;
+  }
+  .btn-accent { color: var(--accent); }
+  .btn-danger { color: var(--danger); }
+  .btn-success-state {
+    background: var(--success-bg) !important; border-color: var(--success) !important;
+    color: var(--success) !important;
+  }
+  .btn-error-state {
+    background: var(--danger-bg) !important; border-color: var(--danger) !important;
+    color: var(--danger) !important;
+  }
+  /* Category Config */
+  .category-config {
+    padding: 10px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface); display: none; flex-wrap: wrap; gap: 8px; align-items: center;
+  }
+  .category-config.show { display: flex; }
+  .category-config-label { font-size: 13px; color: var(--text-dim); margin-right: 8px; }
+  .cat-toggle {
+    padding: 5px 12px; border-radius: 8px; font-size: 12px;
+    cursor: pointer; border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    transition: all 0.15s; font-family: inherit;
+  }
+  .cat-toggle.active {
+    background: var(--tag-active); border-color: var(--tag-active-border);
+    color: var(--accent);
+  }
+  /* Main Layout */
+  .main { display: flex; flex: 1; overflow: hidden; }
+  /* Left Panel - Image List */
+  .left-panel {
+    width: 200px; border-right: 1px solid var(--border);
+    background: var(--surface); display: flex; flex-direction: column;
+    flex-shrink: 0;
+  }
+  .left-header { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .btn-add {
+    width: 100%; justify-content: center;
+    background: var(--accent-glow); border: 1px dashed var(--accent);
+    color: var(--accent); font-weight: 600;
+  }
+  .image-list { flex: 1; overflow-y: auto; padding: 6px; }
+  .img-item {
+    padding: 6px; border-radius: 8px; margin-bottom: 4px;
+    cursor: pointer; border: 1px solid transparent;
+    transition: all 0.15s; position: relative;
+  }
+  .img-item:hover { background: var(--surface2); }
+  .img-item.active {
+    background: var(--accent-glow); border-color: var(--border-active);
+  }
+  .img-thumb {
+    width: 100%; height: 100px; object-fit: cover;
+    border-radius: 6px; display: block;
+  }
+  .img-delete {
+    position: absolute; top: 10px; right: 10px;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: none; background: rgba(0,0,0,0.7); color: #fff;
+    font-size: 11px; cursor: pointer; display: none;
+    align-items: center; justify-content: center;
+  }
+  .img-item:hover .img-delete { display: flex; }
+  .img-badge {
+    position: absolute; bottom: 30px; right: 10px;
+    background: var(--accent); border-radius: 10px;
+    padding: 1px 7px; font-size: 10px; color: #fff; font-weight: 600;
+  }
+  .img-name {
+    font-size: 11px; color: var(--text-dim); margin-top: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 0 2px;
+  }
+  /* Center - Preview */
+  .center-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .preview-area {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden; transition: background 0.2s;
+  }
+  .preview-area.dragover { background: var(--accent-glow); }
+  .drop-overlay {
+    position: absolute; inset: 12px; border-radius: 16px;
+    border: 2px dashed var(--accent); background: var(--accent-glow);
+    display: none; align-items: center; justify-content: center;
+    z-index: 10; pointer-events: none;
+  }
+  .preview-area.dragover .drop-overlay { display: flex; }
+  .drop-text { text-align: center; }
+  .drop-icon { font-size: 40px; margin-bottom: 8px; }
+  .drop-label { font-size: 16px; color: var(--accent); font-weight: 600; }
+  .preview-img {
+    max-width: 100%; max-height: 100%; object-fit: contain; padding: 16px;
+  }
+  .empty-state {
+    text-align: center; padding: 40px; cursor: pointer;
+  }
+  .empty-icon {
+    width: 80px; height: 80px; border-radius: 20px; margin: 0 auto 16px;
+    background: var(--surface); border: 2px dashed var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+  }
+  .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .empty-sub { font-size: 13px; color: var(--text-dim); }
+  /* Tags Bar */
+  .tags-bar {
+    border-top: 1px solid var(--border); padding: 10px 16px;
+    background: var(--surface); max-height: 180px; overflow-y: auto;
+    display: none;
+  }
+  .tags-bar.show { display: block; }
+  .tags-bar-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .tags-bar-label { font-size: 12px; color: var(--text-dim); font-weight: 600; }
+  .tags-bar-actions { display: flex; gap: 6px; }
+  .tag-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 6px; font-size: 12px;
+    background: var(--tag-active); border: 1px solid var(--tag-active-border);
+    color: var(--accent);
+  }
+  .tag-chip-remove {
+    cursor: pointer; opacity: 0.6; margin-left: 2px;
+    font-size: 10px; border: none; background: none; color: var(--accent);
+  }
+  .tag-chip-remove:hover { opacity: 1; }
+  .empty-tags { font-size: 12px; color: var(--text-muted); padding: 8px 0; }
+  .txt-preview {
+    margin-top: 8px; padding: 6px 10px; border-radius: 6px;
+    background: var(--bg); font-size: 11px; color: var(--text-muted);
+    font-family: 'SF Mono', 'Fira Code', monospace; word-break: break-all;
+  }
+  .txt-preview-label { color: var(--text-dim); font-weight: 600; }
+  /* Right Panel - Tag Library */
+  .right-panel {
+    width: 340px; border-left: 1px solid var(--border);
+    background: var(--surface); display: flex; flex-direction: column;
+    flex-shrink: 0; overflow: hidden;
+  }
+  .tab-bar { display: flex; border-bottom: 1px solid var(--border); }
+  .tab-btn {
+    flex: 1; padding: 10px 0; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    background: transparent; color: var(--text-dim);
+    border-bottom: 2px solid transparent; transition: all 0.15s;
+  }
+  .tab-btn.active {
+    background: var(--bg); color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .search-area {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+  }
+  .search-input {
+    width: 100%; padding: 7px 10px; border-radius: 7px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: 13px; outline: none;
+    font-family: inherit; margin-bottom: 6px;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .custom-row { display: flex; gap: 6px; }
+  .custom-input { flex: 1; }
+  .btn-add-custom {
+    padding: 6px 12px; background: var(--accent);
+    border: none; color: #fff; font-weight: 600;
+    border-radius: 7px; cursor: pointer; font-size: 14px;
+  }
+  /* Tag Content Area */
+  .tag-content { flex: 1; overflow-y: auto; padding: 8px 12px; }
+  .cat-header {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border-radius: 8px; border: none; cursor: pointer;
+    background: transparent; color: var(--text); font-size: 13px;
+    font-weight: 600; font-family: inherit; margin-bottom: 2px;
+    transition: background 0.15s;
+  }
+  .cat-header:hover { background: var(--surface2); }
+  .cat-header.expanded { background: var(--accent-glow); }
+  .cat-count { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+  .cat-body { padding: 4px 0 4px 4px; display: none; }
+  .cat-body.show { display: block; }
+  .sub-header {
+    width: 100%; display: flex; align-items: center;
+    padding: 5px 8px; border: none; cursor: pointer;
+    background: transparent; color: var(--text-dim);
+    font-size: 12px; font-weight: 600; border-radius: 4px;
+    font-family: inherit; transition: background 0.15s;
+  }
+  .sub-header:hover { background: var(--surface2); }
+  .sub-arrow { margin-right: 6px; font-size: 10px; }
+  .sub-body { display: none; }
+  .sub-body.show { display: block; }
+  .tag-grid {
+    display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 8px;
+  }
+  .tag-btn {
+    padding: 3px 10px; border-radius: 5px; font-size: 12px;
+    cursor: pointer; border: 1px solid transparent;
+    background: var(--tag-bg); color: var(--text-dim);
+    transition: all 0.12s; white-space: nowrap; font-family: inherit;
+  }
+  .tag-btn:hover { background: var(--tag-hover); color: var(--text); }
+  .tag-btn.active {
+    background: var(--tag-active); border-color: var(--tag-active-border);
+    color: var(--accent);
+  }
+  /* AI Panel */
+  .ai-panel { padding: 0; }
+  .ai-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .ai-header-label { font-size: 13px; font-weight: 600; }
+  .ai-notice {
+    padding: 10px 12px; margin-bottom: 12px; border-radius: 8px;
+    background: var(--warning-bg); border: 1px solid rgba(245,158,11,0.2);
+    font-size: 11px; color: var(--warning); line-height: 1.5;
+  }
+  .ai-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border-radius: 8px; margin-bottom: 4px;
+    background: var(--bg); border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .ai-item.accepted {
+    background: var(--success-bg); border-color: rgba(34,197,94,0.2);
+  }
+  .ai-tag { font-size: 13px; font-weight: 500; }
+  .ai-cat { font-size: 10px; color: var(--text-muted); margin-left: 8px; }
+  .ai-right { display: flex; align-items: center; gap: 8px; }
+  .confidence-bar {
+    width: 50px; height: 4px; border-radius: 2px;
+    background: var(--border); overflow: hidden;
+  }
+  .confidence-fill { height: 100%; border-radius: 2px; }
+  .confidence-high { background: var(--success); }
+  .confidence-mid { background: var(--warning); }
+  .confidence-low { background: var(--text-muted); }
+  .confidence-text { font-size: 10px; color: var(--text-dim); width: 30px; text-align: right; }
+  .accepted-text { font-size: 11px; color: var(--success); }
+  .empty-center { text-align: center; padding: 40px; color: var(--text-muted); }
+  /* Footer */
+  .footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 20px; border-top: 1px solid var(--border);
+    background: var(--surface); font-size: 11px; color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  /* Keyboard nav hint */
+  .nav-hint {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 8px; font-size: 11px;
+    color: var(--text-dim); z-index: 100; display: none;
+  }
+  .nav-hint.show { display: block; }
+  @media (max-width: 900px) {
+    .left-panel { width: 140px; }
+    .right-panel { width: 280px; }
+  }
+</style>
+</head>
+<body>
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo">标</div>
+    <div>
+      <div class="header-title">AI 图片打标器</div>
+      <div class="header-sub">数据集标签管理工具 · <span id="imgCount">0</span> 张图片</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn" id="btnConfig" onclick="toggleConfig()">⚙ 标签类别配置</button>
+    <button class="btn btn-primary" id="btnExport" onclick="exportTags()">📥 导出 .txt</button>
+  </div>
+</header>
+<!-- CATEGORY CONFIG -->
+<div class="category-config" id="categoryConfig"></div>
+<!-- MAIN -->
+<div class="main">
+  <!-- LEFT: Image List -->
+  <div class="left-panel">
+    <div class="left-header">
+      <button class="btn btn-add" onclick="document.getElementById('fileInput').click()">+ 添加图片</button>
+      <input type="file" id="fileInput" multiple accept="image/*" style="display:none" onchange="handleFileSelect(event)">
+    </div>
+    <div class="image-list" id="imageList"></div>
+  </div>
+  <!-- CENTER: Preview -->
+  <div class="center-panel">
+    <div class="preview-area" id="previewArea"
+         ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+      <div class="drop-overlay">
+        <div class="drop-text">
+          <div class="drop-icon">📁</div>
+          <div class="drop-label">释放以添加图片</div>
+        </div>
+      </div>
+      <div class="empty-state" id="emptyState" onclick="document.getElementById('fileInput').click()">
+        <div class="empty-icon">🖼</div>
+        <div class="empty-title">拖拽图片到此处</div>
+        <div class="empty-sub">或点击此处选择文件 · 支持 JPG / PNG / WEBP</div>
+      </div>
+      <img class="preview-img" id="previewImg" style="display:none">
+    </div>
+    <div class="tags-bar" id="tagsBar">
+      <div class="tags-bar-header">
+        <span class="tags-bar-label" id="tagsBarLabel">已选标签 (0)</span>
+        <div class="tags-bar-actions">
+          <button class="btn btn-sm btn-accent" onclick="copyTagsToAll()">📋 复制到全部</button>
+          <button class="btn btn-sm btn-danger" onclick="clearTags()">🗑 清空</button>
+        </div>
+      </div>
+      <div class="tag-chips" id="tagChips"></div>
+      <div class="txt-preview" id="txtPreview" style="display:none"></div>
+    </div>
+  </div>
+  <!-- RIGHT: Tag Panel -->
+  <div class="right-panel">
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabTags" onclick="switchTab('tags')">🏷 标签库</button>
+      <button class="tab-btn" id="tabAI" onclick="switchTab('ai')">🤖 AI建议</button>
+    </div>
+    <div class="search-area">
+      <input class="search-input" id="searchInput" placeholder="🔍 搜索标签..." oninput="renderTagPanel()">
+      <div class="custom-row">
+        <input class="search-input custom-input" id="customInput" placeholder="输入自定义标签" onkeydown="if(event.key==='Enter')addCustomTag()">
+        <button class="btn-add-custom" onclick="addCustomTag()">+</button>
+      </div>
+    </div>
+    <div class="tag-content" id="tagContent"></div>
+  </div>
+</div>
+<!-- FOOTER -->
+<footer class="footer">
+  <span id="footerLeft">共 0 张图片 · 已打标 0 张 · 总标签 0 个</span>
+  <span id="footerRight">使用 ← → 切换图片 · 未选择图片</span>
+</footer>
+<script>
+// ==================== DATA ====================
+const TAG_DATABASE = {
+  "画风 Style": {
+    icon: "🎨",
+    tags: [
+      "realistic","semi-realistic","anime","manga","cartoon","chibi","pixel art",
+      "watercolor","oil painting","sketch","line art","flat color","cel shading",
+      "3d render","photorealistic","cyberpunk","steampunk","art nouveau","art deco",
+      "ukiyo-e","chinese painting","ink wash","gothic","retro","vintage","vaporwave",
+      "synthwave","impressionism","surrealism","minimalist","pop art","grunge",
+      "pastel","neon","dark fantasy","concept art","illustration","comic book",
+      "storybook","propaganda poster"
+    ]
+  },
+  "质量 Quality": {
+    icon: "⭐",
+    tags: [
+      "masterpiece","best quality","high quality","normal quality","low quality",
+      "worst quality","highres","absurdres","incredibly absurdres","4k","8k",
+      "ultra detailed","very detailed","extremely detailed","intricate details",
+      "finely detailed","sharp focus","professional","beautiful","aesthetic",
+      "amazing","stunning"
+    ]
+  },
+  "人设 Character": {
+    icon: "👤",
+    subcategories: {
+      "性别 Gender": ["1girl","1boy","multiple girls","multiple boys","androgynous","no humans"],
+      "发色 Hair Color": [
+        "black hair","brown hair","blonde hair","red hair","white hair","silver hair",
+        "blue hair","green hair","pink hair","purple hair","orange hair","grey hair",
+        "multicolored hair","gradient hair","streaked hair","two-tone hair"
+      ],
+      "发型 Hair Style": [
+        "long hair","short hair","medium hair","very long hair","ponytail","twintails",
+        "braids","bun","bob cut","pixie cut","side ponytail","drill hair","messy hair",
+        "straight hair","wavy hair","curly hair","ahoge","bangs","side bangs",
+        "blunt bangs","hair over one eye","hime cut"
+      ],
+      "瞳色 Eye Color": [
+        "blue eyes","red eyes","green eyes","brown eyes","yellow eyes","purple eyes",
+        "pink eyes","black eyes","orange eyes","heterochromia","multicolored eyes","glowing eyes"
+      ],
+      "表情 Expression": [
+        "smile","grin","open mouth","closed mouth","blush","crying","angry","surprised",
+        "sad","expressionless","smirk","pout","frown","laughing","serious","shy",
+        "embarrassed","scared","happy","determined"
+      ],
+      "体型 Body": [
+        "slim","petite","muscular","tall","short","curvy","child","teen","adult","elderly",
+        "large breasts","medium breasts","small breasts","flat chest"
+      ]
+    }
+  },
+  "服装 Clothing": {
+    icon: "👗",
+    subcategories: {
+      "上衣 Tops": [
+        "shirt","t-shirt","blouse","sweater","hoodie","jacket","coat","blazer","vest",
+        "tank top","crop top","cardigan","kimono","hanfu","qipao"
+      ],
+      "下装 Bottoms": [
+        "skirt","long skirt","short skirt","pleated skirt","pants","shorts","jeans",
+        "leggings","trousers"
+      ],
+      "连衣 Dresses": [
+        "dress","school uniform","military uniform","maid outfit","wedding dress",
+        "evening gown","swimsuit","bikini","armor","bodysuit","jumpsuit","chinese dress"
+      ],
+      "配饰 Accessories": [
+        "hat","glasses","sunglasses","earrings","necklace","bracelet","ring","crown",
+        "ribbon","bow","scarf","gloves","boots","high heels","sneakers","stockings",
+        "thigh highs","knee highs","pantyhose"
+      ]
+    }
+  },
+  "构图 Composition": {
+    icon: "📐",
+    tags: [
+      "close-up","portrait","upper body","cowboy shot","full body","wide shot",
+      "from above","from below","from side","from behind","dutch angle",
+      "bird's eye view","worm's eye view","pov","looking at viewer","looking away",
+      "looking back","looking up","looking down","profile","solo","duo","group",
+      "symmetrical","dynamic pose","action","sitting","standing","lying down",
+      "kneeling","running","jumping","walking","flying","floating","crossed arms",
+      "hands on hips","arms up","peace sign"
+    ]
+  },
+  "场景 Scene": {
+    icon: "🌄",
+    subcategories: {
+      "室内 Indoor": [
+        "indoors","bedroom","classroom","office","kitchen","bathroom","library",
+        "cafe","restaurant","bar","church","temple","castle interior","train interior"
+      ],
+      "室外 Outdoor": [
+        "outdoors","street","city","rooftop","garden","park","beach","mountain",
+        "forest","desert","field","river","lake","ocean","waterfall","ruins",
+        "bridge","alley","harbor"
+      ],
+      "幻想 Fantasy": [
+        "fantasy","sci-fi","space","underwater","floating island","magic circle",
+        "portal","dungeon","throne room","crystal cave","enchanted forest","cloud city"
+      ]
+    }
+  },
+  "光影 Lighting": {
+    icon: "💡",
+    tags: [
+      "natural light","sunlight","moonlight","golden hour","blue hour","sunset",
+      "sunrise","backlight","rim light","dramatic lighting","soft lighting",
+      "hard lighting","studio lighting","neon lighting","candlelight","spotlight",
+      "volumetric lighting","god rays","shadow","silhouette","high contrast",
+      "low key","high key","lens flare","bokeh","bloom","cinematic lighting"
+    ]
+  },
+  "氛围 Mood": {
+    icon: "🌈",
+    tags: [
+      "warm","cool","dark","bright","vibrant","muted","monochrome","sepia",
+      "dreamy","ethereal","mysterious","ominous","peaceful","energetic",
+      "melancholic","romantic","epic","cute","elegant","creepy","whimsical",
+      "nostalgic","futuristic","horror","cozy"
+    ]
+  },
+  "特效 Effects": {
+    icon: "✨",
+    tags: [
+      "particles","sparkle","fire","ice","lightning","smoke","fog","rain","snow",
+      "wind","petals","bubbles","magic","aura","glow","reflection","transparency",
+      "motion blur","depth of field","chromatic aberration","film grain","vignette"
+    ]
+  },
+  "分级 Rating": {
+    icon: "🏷️",
+    tags: ["safe","general","sensitive","questionable","explicit","sfw","nsfw"]
+  }
+};
+// ==================== STATE ====================
+let images = [];       // { id, file, url, name, tags:[], aiSuggestions:[] }
+let activeImageId = null;
+let enabledCategories = {};
+let expandedCats = {};
+let expandedSubs = {};
+let currentTab = 'tags';
+// Init enabled categories
+Object.keys(TAG_DATABASE).forEach(k => { enabledCategories[k] = true; });
+// ==================== AI SUGGESTIONS ====================
+function generateAISuggestions() {
+  return [
+    { tag: "best quality", confidence: 0.92, category: "质量 Quality" },
+    { tag: "masterpiece", confidence: 0.88, category: "质量 Quality" },
+    { tag: "highres", confidence: 0.85, category: "质量 Quality" },
+    { tag: "1girl", confidence: 0.78, category: "人设 Character" },
+    { tag: "looking at viewer", confidence: 0.72, category: "构图 Composition" },
+    { tag: "upper body", confidence: 0.68, category: "构图 Composition" },
+    { tag: "smile", confidence: 0.65, category: "人设 Character" },
+    { tag: "long hair", confidence: 0.60, category: "人设 Character" },
+    { tag: "indoors", confidence: 0.55, category: "场景 Scene" },
+    { tag: "natural light", confidence: 0.48, category: "光影 Lighting" },
+    { tag: "soft lighting", confidence: 0.42, category: "光影 Lighting" },
+    { tag: "anime", confidence: 0.38, category: "画风 Style" },
+  ];
+}
+// ==================== CORE FUNCTIONS ====================
+function getActive() {
+  return images.find(img => img.id === activeImageId) || null;
+}
+function addImages(files) {
+  files.forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const id = 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+    const url = URL.createObjectURL(file);
+    images.push({ id, file, url, name: file.name, tags: [], aiSuggestions: generateAISuggestions() });
+  });
+  if (!activeImageId && images.length > 0) activeImageId = images[0].id;
+  renderAll();
+}
+function selectImage(id) {
+  activeImageId = id;
+  renderAll();
+}
+function deleteImage(id, e) {
+  if (e) e.stopPropagation();
+  const idx = images.findIndex(img => img.id === id);
+  if (idx === -1) return;
+  URL.revokeObjectURL(images[idx].url);
+  images.splice(idx, 1);
+  if (activeImageId === id) {
+    activeImageId = images.length > 0 ? images[Math.min(idx, images.length-1)].id : null;
+  }
+  renderAll();
+}
+function toggleTag(tag) {
+  const img = getActive();
+  if (!img) return;
+  const idx = img.tags.indexOf(tag);
+  if (idx === -1) img.tags.push(tag);
+  else img.tags.splice(idx, 1);
+  renderAll();
+}
+function removeTag(tag) {
+  const img = getActive();
+  if (!img) return;
+  const idx = img.tags.indexOf(tag);
+  if (idx !== -1) img.tags.splice(idx, 1);
+  renderAll();
+}
+function addCustomTag() {
+  const input = document.getElementById('customInput');
+  const tag = input.value.trim().toLowerCase();
+  if (!tag) return;
+  const img = getActive();
+  if (!img) return;
+  if (!img.tags.includes(tag)) img.tags.push(tag);
+  input.value = '';
+  renderAll();
+}
+function clearTags() {
+  const img = getActive();
+  if (!img) return;
+  img.tags = [];
+  renderAll();
+}
+function copyTagsToAll() {
+  const img = getActive();
+  if (!img || img.tags.length === 0) return;
+  const srcTags = [...img.tags];
+  images.forEach(i => {
+    srcTags.forEach(t => { if (!i.tags.includes(t)) i.tags.push(t); });
+  });
+  renderAll();
+}
+function acceptAISuggestion(tag) {
+  const img = getActive();
+  if (!img || img.tags.includes(tag)) return;
+  img.tags.push(tag);
+  renderAll();
+}
+function acceptAllAI() {
+  const img = getActive();
+  if (!img) return;
+  img.aiSuggestions.forEach(s => {
+    if (!img.tags.includes(s.tag)) img.tags.push(s.tag);
+  });
+  renderAll();
+}
+// ==================== EXPORT ====================
+function exportTags() {
+  const tagged = images.filter(i => i.tags.length > 0);
+  const btn = document.getElementById('btnExport');
+  if (tagged.length === 0) {
+    btn.className = 'btn btn-error-state';
+    btn.textContent = '✗ 没有已打标图片';
+    setTimeout(() => { btn.className = 'btn btn-primary'; btn.textContent = '📥 导出 .txt'; }, 2000);
+    return;
+  }
+  tagged.forEach(img => {
+    const baseName = img.name.replace(/\.[^.]+$/, '');
+    const content = img.tags.join(', ');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = baseName + '.txt';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+  btn.className = 'btn btn-success-state';
+  btn.textContent = '✓ 已导出 ' + tagged.length + ' 个文件';
+  setTimeout(() => { btn.className = 'btn btn-primary'; btn.textContent = '📥 导出 .txt'; }, 2500);
+}
+// ==================== DRAG & DROP ====================
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('previewArea').classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files);
+  addImages(files);
+}
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('previewArea').classList.add('dragover');
+}
+function handleDragLeave(e) {
+  document.getElementById('previewArea').classList.remove('dragover');
+}
+function handleFileSelect(e) {
+  addImages(Array.from(e.target.files));
+  e.target.value = '';
+}
+// ==================== CONFIG ====================
+function toggleConfig() {
+  const el = document.getElementById('categoryConfig');
+  el.classList.toggle('show');
+  renderCategoryConfig();
+}
+function toggleCategoryEnabled(cat) {
+  enabledCategories[cat] = !enabledCategories[cat];
+  renderCategoryConfig();
+  renderTagPanel();
+}
+function renderCategoryConfig() {
+  const el = document.getElementById('categoryConfig');
+  let html = '<span class="category-config-label">选择需要的打标类别：</span>';
+  Object.keys(TAG_DATABASE).forEach(cat => {
+    const data = TAG_DATABASE[cat];
+    const active = enabledCategories[cat];
+    html += `<button class="cat-toggle ${active?'active':''}" onclick="toggleCategoryEnabled('${cat}')">${data.icon} ${cat}</button>`;
+  });
+  el.innerHTML = html;
+}
+// ==================== TAB ====================
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabTags').className = 'tab-btn' + (tab==='tags'?' active':'');
+  document.getElementById('tabAI').className = 'tab-btn' + (tab==='ai'?' active':'');
+  renderTagPanel();
+}
+// ==================== KEYBOARD NAV ====================
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if (images.length === 0) return;
+    const idx = images.findIndex(i => i.id === activeImageId);
+    let next;
+    if (e.key === 'ArrowLeft') next = Math.max(0, idx - 1);
+    else next = Math.min(images.length - 1, idx + 1);
+    activeImageId = images[next].id;
+    renderAll();
+  }
+});
+// ==================== RENDER ====================
+function renderAll() {
+  renderImageList();
+  renderPreview();
+  renderTagsBar();
+  renderTagPanel();
+  renderFooter();
+}
+function renderImageList() {
+  const el = document.getElementById('imageList');
+  document.getElementById('imgCount').textContent = images.length;
+  if (images.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = images.map(img => `
+    <div class="img-item ${img.id===activeImageId?'active':''}" onclick="selectImage('${img.id}')">
+      <div style="position:relative">
+        <img class="img-thumb" src="${img.url}" alt="${img.name}">
+        <button class="img-delete" onclick="deleteImage('${img.id}',event)">✕</button>
+        ${img.tags.length > 0 ? `<div class="img-badge">${img.tags.length}</div>` : ''}
+      </div>
+      <div class="img-name">${img.name}</div>
+    </div>
+  `).join('');
+}
+function renderPreview() {
+  const img = getActive();
+  const emptyEl = document.getElementById('emptyState');
+  const imgEl = document.getElementById('previewImg');
+  if (img) {
+    emptyEl.style.display = 'none';
+    imgEl.style.display = 'block';
+    imgEl.src = img.url;
+  } else {
+    emptyEl.style.display = '';
+    imgEl.style.display = 'none';
+  }
+}
+function renderTagsBar() {
+  const bar = document.getElementById('tagsBar');
+  const img = getActive();
+  if (!img) { bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  document.getElementById('tagsBarLabel').textContent = `已选标签 (${img.tags.length})`;
+  const chipsEl = document.getElementById('tagChips');
+  if (img.tags.length === 0) {
+    chipsEl.innerHTML = '<div class="empty-tags">尚未添加标签 · 从右侧面板选择或使用 AI 建议</div>';
+  } else {
+    chipsEl.innerHTML = img.tags.map(t => `
+      <span class="tag-chip">
+        ${escHtml(t)}
+        <button class="tag-chip-remove" onclick="removeTag('${escAttr(t)}')">✕</button>
+      </span>
+    `).join('');
+  }
+  const previewEl = document.getElementById('txtPreview');
+  if (img.tags.length > 0) {
+    previewEl.style.display = '';
+    previewEl.innerHTML = `<span class="txt-preview-label">TXT 预览: </span>${escHtml(img.tags.join(', '))}`;
+  } else {
+    previewEl.style.display = 'none';
+  }
+}
+function renderTagPanel() {
+  const el = document.getElementById('tagContent');
+  const search = (document.getElementById('searchInput').value || '').toLowerCase();
+  const img = getActive();
+  if (currentTab === 'ai') {
+    if (!img) { el.innerHTML = '<div class="empty-center">请先选择一张图片</div>'; return; }
+    let html = '<div style="padding:4px">';
+    html += `<div class="ai-header">
+      <span class="ai-header-label">AI 推荐标签</span>
+      <button class="btn btn-sm btn-accent" onclick="acceptAllAI()">✓ 全部采纳</button>
+    </div>`;
+    html += `<div class="ai-notice">
+      💡 提示：当前为模拟 AI 建议。可接入 Vision API（如 Gemini、GPT-4V、Claude）实现真正的图像识别自动打标。详见下方说明。
+    </div>`;
+    img.aiSuggestions.forEach(s => {
+      const accepted = img.tags.includes(s.tag);
+      const confClass = s.confidence > 0.7 ? 'confidence-high' : s.confidence > 0.5 ? 'confidence-mid' : 'confidence-low';
+      html += `<div class="ai-item ${accepted?'accepted':''}">
+        <div><span class="ai-tag">${escHtml(s.tag)}</span><span class="ai-cat">${escHtml(s.category)}</span></div>
+        <div class="ai-right">
+          <div class="confidence-bar"><div class="confidence-fill ${confClass}" style="width:${s.confidence*100}%"></div></div>
+          <span class="confidence-text">${Math.round(s.confidence*100)}%</span>
+          ${accepted
+            ? '<span class="accepted-text">已采纳</span>'
+            : `<button class="btn btn-sm" style="color:var(--success)" onclick="acceptAISuggestion('${escAttr(s.tag)}')">✓ 采纳</button>`
+          }
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+    return;
+  }
+  // Tags tab
+  let html = '';
+  Object.keys(TAG_DATABASE).forEach(cat => {
+    if (!enabledCategories[cat]) return;
+    const data = TAG_DATABASE[cat];
+    const hasSubs = !!data.subcategories;
+    const allTags = hasSubs ? Object.values(data.subcategories).flat() : data.tags;
+    const filtered = search ? allTags.filter(t => t.includes(search)) : allTags;
+    if (search && filtered.length === 0) return;
+    const isExpanded = expandedCats[cat] !== false;
+    html += `<div>
+      <button class="cat-header ${isExpanded?'expanded':''}" onclick="toggleCat('${cat}')">
+        <span>${data.icon} ${cat}</span>
+        <span class="cat-count">${isExpanded?'▾':'▸'} ${allTags.length}</span>
+      </button>
+      <div class="cat-body ${isExpanded?'show':''}">`;
+    if (hasSubs) {
+      Object.keys(data.subcategories).forEach(sub => {
+        const tags = data.subcategories[sub];
+        const ft = search ? tags.filter(t => t.includes(search)) : tags;
+        if (search && ft.length === 0) return;
+        const subExpanded = expandedSubs[sub] !== false;
+        html += `<div>
+          <button class="sub-header" onclick="toggleSubCat('${escAttr(sub)}')">
+            <span class="sub-arrow">${subExpanded?'▾':'▸'}</span> ${sub}
+          </button>
+          <div class="sub-body ${subExpanded?'show':''}"><div class="tag-grid">`;
+        ft.forEach(t => {
+          const active = img && img.tags.includes(t);
+          html += `<button class="tag-btn ${active?'active':''}" onclick="toggleTag('${escAttr(t)}')">${escHtml(t)}</button>`;
+        });
+        html += '</div></div></div>';
+      });
+    } else {
+      html += '<div class="tag-grid">';
+      filtered.forEach(t => {
+        const active = img && img.tags.includes(t);
+        html += `<button class="tag-btn ${active?'active':''}" onclick="toggleTag('${escAttr(t)}')">${escHtml(t)}</button>`;
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+  });
+  el.innerHTML = html || '<div class="empty-center">没有匹配的标签</div>';
+}
+function renderFooter() {
+  const tagged = images.filter(i => i.tags.length > 0).length;
+  const total = images.reduce((s,i) => s + i.tags.length, 0);
+  document.getElementById('footerLeft').textContent = `共 ${images.length} 张图片 · 已打标 ${tagged} 张 · 总标签 ${total} 个`;
+  const img = getActive();
+  document.getElementById('footerRight').textContent = img
+    ? `← → 切换图片 · ${img.name} · ${img.tags.length} tags`
+    : '使用 ← → 切换图片 · 未选择图片';
+}
+// ==================== HELPERS ====================
+function toggleCat(cat) { expandedCats[cat] = expandedCats[cat] === false ? true : false; renderTagPanel(); }
+function toggleSubCat(sub) { expandedSubs[sub] = expandedSubs[sub] === false ? true : false; renderTagPanel(); }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return s.replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+// ==================== INIT ====================
+renderAll();
+renderCategoryConfig();
+</script>
+</body>
+</html>
